@@ -6,7 +6,7 @@ description: "Query Khánh Hòa Provincial Library SRU catalog via CQL and outpu
 # SRU Library Query Skill
 
 ## Overview
-Enable querying the Khánh Hòa Provincial Library SRU service via CQL (Common Query Language) to search for books, articles, and other resources at https://sru.thuvienkhanhhoa.gov.vn.
+Enable querying the Khánh Hòa Provincial Library SRU service via CQL (Common Query Language) to search for books, articles, and other resources at https://sru.thuvienkhanhhoa.gov.vn. The SRU endpoint (`/khanhhoa`) runs on top of the **Zebra** search and indexing engine, successfully modernizing and expanding upon the library's traditional **Z39.50** bibliographic protocol infrastructure.
 
 ## Prerequisites
 - Access to https://sru.thuvienkhanhhoa.gov.vn
