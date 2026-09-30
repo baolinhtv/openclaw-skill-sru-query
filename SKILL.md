@@ -1,6 +1,6 @@
 ---
 name: "sru-query"
-description: "Query Thuan Khanh library SRU catalog via CQL"
+description: "Query Khánh Hòa Provincial Library SRU catalog via CQL and output structured JSON records"
 ---
 
 # SRU Library Query Skill
