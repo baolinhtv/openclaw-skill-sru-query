@@ -13,7 +13,7 @@ def clean_marc_text(text):
     return text.strip().rstrip(" /:;,.")
 
 
-def search_sru(query, maximum_records=10):
+def search_sru(query, maximum_records=20):
     base_url = "https://sru.thuvienkhanhhoa.gov.vn/khanhhoa"
     params = {
         "operation": "searchRetrieve",
@@ -32,6 +32,7 @@ def search_sru(query, maximum_records=10):
     except Exception as e:
         print(f"Error fetching SRU data: {e}", file=sys.stderr)
         return []
+
 
 def parse_marcxml(xml_bytes):
     results = []
@@ -120,6 +121,7 @@ def parse_marcxml(xml_bytes):
         
     return results
 
+
 def main():
     parser = argparse.ArgumentParser(description="Query Khanh Hoa Provincial Library SRU catalog.")
     parser.add_argument("query", help="CQL query or search term (e.g. 'python' or 'dc.title=\"python\"')")
@@ -141,6 +143,7 @@ def main():
         
     records = search_sru(cql_query, args.limit)
     print(json.dumps(records, ensure_ascii=False, indent=2))
+
 
 if __name__ == "__main__":
     main()
