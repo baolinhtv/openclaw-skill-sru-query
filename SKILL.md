@@ -22,9 +22,9 @@ openclaw skills install @baolinhtv/tvkh-sru-query
 
 ### Primary Function: `sru_query.py` CLI
 ```bash
-python3 sru_query.py "python"
-python3 sru_query.py "tháp bà ponagar" --limit 10
-python3 sru_query.py "Tô Hoài" --author "Tô Hoài"
+python3 sru_query.py "Văn hóa Chăm"
+python3 sru_query.py "Khánh Hòa" --limit 20
+python3 sru_query.py "Xứ Trầm Hương" --author "Quách Tấn"
 ```
 
 #### Parameters
@@ -33,30 +33,37 @@ python3 sru_query.py "Tô Hoài" --author "Tô Hoài"
 - `title`: optional, specific title keywords (`dc.title`)
 - `limit`: optional, max records to return (default 20)
 
+### Smart Newspaper Filter (Bộ lọc báo chí thông minh)
+The Khanh Hoa Provincial Library catalog contains thousands of bound local newspaper issues that often overwhelm search results. This skill features a built-in smart filter:
+1. It automatically fetches a large pool of records from the Zebra server (bypassing the server's default sorting limits).
+2. It filters out any records whose storage locations consist entirely of `"Kho Báo"` (Newspaper Archive).
+3. It returns a clean list of actual books, magazines, and documents up to the requested `--limit`.
+
 ### CQL Query Syntax Examples
 
-#### 1. Search by Keyword (Contains all words)
+#### 1. Search by Keyword (Broad Search)
+By default, if you input a simple string, the script wraps it in quotes `""` to trigger a broad phrase search across the Zebra indexes:
 ```text
-dc.title all "lập trình python"
-dc.title all "tháp bà ponagar"
+"Văn hóa Chăm"
+"Lịch sử Khánh Hòa"
 ```
 
 #### 2. Search by Specific Field
-- By Author: `dc.creator="Tô Hoài"`
-- By Title Phrase: `dc.title="Discovering calculus"`
-- By Subject: `dc.subject all "du lịch"`
+- By Author: `dc.creator="Quách Tấn"`
+- By Title Phrase: `dc.title="Xứ Trầm Hương"`
+- By Subject: `dc.subject="Văn hóa"`
 
 #### 3. Combined / Advanced Queries
 ```text
-dc.title all "python" AND dc.creator="Shaw"
-dc.subject all "lịch sử" AND dc.title all "Khánh Hòa"
+"Văn hóa" AND dc.creator="Bố Xuân Hổ"
+dc.title="Chăm" AND dc.subject="Kiến trúc"
 ```
 
 ### Direct SRU URL Examples (Working)
 ```text
-[https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=dc.title+all+%22th%C3%A1p+b%C3%A0%22&recordSchema=marcxml&maximumRecords=10](https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=dc.title+all+%22th%C3%A1p+b%C3%A0%22&recordSchema=marcxml&maximumRecords=10)
+[https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=%22V%C4%83n+h%C3%B3a+Ch%C4%83m%22&recordSchema=marcxml&maximumRecords=10](https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=%22V%C4%83n+h%C3%B3a+Ch%C4%83m%22&recordSchema=marcxml&maximumRecords=10)
 
-[https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=dc.title%3D%22python%22&recordSchema=marcxml&maximumRecords=10](https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=dc.title%3D%22python%22&recordSchema=marcxml&maximumRecords=10)
+[https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=dc.title%3D%22Kh%C3%A1nh+H%C3%B2a%22&recordSchema=marcxml&maximumRecords=10](https://sru.thuvienkhanhhoa.gov.vn/khanhhoa?operation=searchRetrieve&version=1.1&query=dc.title%3D%22Kh%C3%A1nh+H%C3%B2a%22&recordSchema=marcxml&maximumRecords=10)
 ```
 
 ## Output Data Structure (JSON)
@@ -64,24 +71,22 @@ The skill parses raw MARC21 XML into clean, AI-ready JSON objects:
 ```json
 [
   {
-    "id": "801",
-    "title": "Discovering calculus with mathematica",
-    "author": "Evans, Benny, Jonson, Jerry, Knoll, Cecilia A., Shaw, Michael D.",
+    "id": "14350",
+    "title": "Truyền thuyết về các tháp Chăm trên miền đất cực Nam Trung bộ",
+    "author": "Bố, Xuân Hổ",
     "authors": [
-      "Evans, Benny",
-      "Jonson, Jerry",
-      "Knoll, Cecilia A.",
-      "Shaw, Michael D."
+      "Bố, Xuân Hổ"
     ],
-    "publisher": "John Wiley & Sons",
+    "publisher": "Văn hóa dân tộc",
     "year": "1995",
-    "call_number": "515 D313C",
-    "price": "52000đ",
-    "location": "Kho mở / Kho tiếng Anh",
+    "call_number": "305.899 TR527TH",
+    "price": "35000đ",
+    "location": "Kho mở / Kho Đọc ; Kho Lưu động",
     "locations": [
-      "Kho mở / Kho tiếng Anh"
+      "Kho mở / Kho Đọc",
+      "Kho Lưu động"
     ],
-    "summary": ""
+    "summary": "Giới thiệu văn hóa Chăm qua các tháp cổ ở miền Nam Trung Bộ, tập trung vào kiến trúc và các truyền thuyết dân gian xoay quanh việc xây dựng tháp."
   }
 ]
 ```
