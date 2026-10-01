@@ -1,4 +1,6 @@
 import sys
+import time
+import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -7,13 +9,21 @@ import argparse
 
 
 def clean_marc_text(text):
-    """Xóa bỏ các dấu câu chuẩn ISBD còn sót lại ở cuối chuỗi trong MARC21"""
+    """Xóa bỏ các ký tự phân cách chuẩn ISBD còn sót lại ở hai đầu chuỗi"""
     if not text:
         return ""
-    return text.strip().rstrip(" /:;,.")
+    return text.strip().strip(" /:;,.")
 
 
-def search_sru(query, maximum_records=20):
+def clean_year(year_text):
+    """Trích xuất chính xác 4 chữ số năm (ví dụ: 'c1995.' -> '1995')"""
+    if not year_text:
+        return ""
+    match = re.search(r'\b(19\d{2}|20\d{2})\b', year_text)
+    return match.group(0) if match else clean_marc_text(year_text)
+
+
+def search_sru(query, maximum_records=20, retries=3, backoff_factor=1.5):
     base_url = "https://sru.thuvienkhanhhoa.gov.vn/khanhhoa"
     params = {
         "operation": "searchRetrieve",
@@ -23,15 +33,18 @@ def search_sru(query, maximum_records=20):
         "maximumRecords": str(maximum_records)
     }
     url = f"{base_url}?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={'User-Agent': 'OpenClaw-SRU-Client/1.0'})
     
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'OpenClaw-SRU-Client/1.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            xml_data = response.read()
-        return parse_marcxml(xml_data)
-    except Exception as e:
-        print(f"Error fetching SRU data: {e}", file=sys.stderr)
-        return []
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                xml_data = response.read()
+            return parse_marcxml(xml_data)
+        except Exception as e:
+            if attempt == retries:
+                print(f"Error fetching SRU data (Attempt {attempt}/{retries}): {e}", file=sys.stderr)
+                return []
+            time.sleep(backoff_factor ** attempt)
 
 
 def parse_marcxml(xml_bytes):
@@ -52,63 +65,100 @@ def parse_marcxml(xml_bytes):
                 "id": "",
                 "title": "",
                 "author": "",
+                "authors": [],
                 "publisher": "",
                 "year": "",
+                "call_number": "",
                 "price": "",
                 "location": "",
+                "locations": [],
                 "summary": ""
             }
             
-            # Control field 001 (ID)
+            # 1. Mã biểu ghi (001)
             f001 = record.find('.//marc:controlfield[@tag="001"]', namespaces)
             if f001 is not None and f001.text:
                 item["id"] = f001.text.strip()
                 
-            # Author 100 $a
+            # 2. Tác giả: Bắt cả 100 $a và toàn bộ 700 $a (hỗ trợ nhiều tác giả)
+            authors_list = []
             f100 = record.find('.//marc:datafield[@tag="100"]/marc:subfield[@code="a"]', namespaces)
             if f100 is not None and f100.text:
-                item["author"] = clean_marc_text(f100.text)
+                authors_list.append(clean_marc_text(f100.text))
                 
-            # Title 245 $a $b
+            for f700 in record.findall('.//marc:datafield[@tag="700"]', namespaces):
+                sub_a = f700.find('marc:subfield[@code="a"]', namespaces)
+                if sub_a is not None and sub_a.text:
+                    name = clean_marc_text(sub_a.text)
+                    if name not in authors_list:
+                        authors_list.append(name)
+                        
+            # 3. Nhan đề & Thông tin trách nhiệm (245 $a $b $c)
             f245 = record.find('.//marc:datafield[@tag="245"]', namespaces)
             if f245 is not None:
                 sub_a = f245.find('marc:subfield[@code="a"]', namespaces)
                 sub_b = f245.find('marc:subfield[@code="b"]', namespaces)
+                sub_c = f245.find('marc:subfield[@code="c"]', namespaces)
+                
                 title_parts = []
                 if sub_a is not None and sub_a.text:
                     title_parts.append(clean_marc_text(sub_a.text))
                 if sub_b is not None and sub_b.text:
                     title_parts.append(clean_marc_text(sub_b.text))
-                item["title"] = " ".join(title_parts)
+                item["title"] = " - ".join(title_parts) if len(title_parts) > 1 else "".join(title_parts)
                 
-            # Publisher / Year 260 $b $c
-            f260 = record.find('.//marc:datafield[@tag="260"]', namespaces)
-            if f260 is not None:
-                sub_b = f260.find('marc:subfield[@code="b"]', namespaces)
-                sub_c = f260.find('marc:subfield[@code="c"]', namespaces)
+                # Fallback tác giả từ 245 $c nếu không có 100/700
+                if not authors_list and sub_c is not None and sub_c.text:
+                    authors_list.append(clean_marc_text(sub_c.text))
+            
+            item["authors"] = authors_list
+            item["author"] = ", ".join(authors_list)  # Giữ trường "author" đơn lẻ cho OpenClaw
+                
+            # 4. Phân loại DDC / Số xếp giá (082 $a $b)
+            f082 = record.find('.//marc:datafield[@tag="082"]', namespaces)
+            if f082 is not None:
+                sub_a = f082.find('marc:subfield[@code="a"]', namespaces)
+                sub_b = f082.find('marc:subfield[@code="b"]', namespaces)
+                ddc_parts = []
+                if sub_a is not None and sub_a.text:
+                    ddc_parts.append(clean_marc_text(sub_a.text))
+                if sub_b is not None and sub_b.text:
+                    ddc_parts.append(clean_marc_text(sub_b.text))
+                item["call_number"] = " ".join(ddc_parts)
+
+            # 5. Xuất bản / Năm (260 hoặc chuẩn mới 264)
+            f26x = record.find('.//marc:datafield[@tag="260"]', namespaces) or record.find('.//marc:datafield[@tag="264"]', namespaces)
+            if f26x is not None:
+                sub_b = f26x.find('marc:subfield[@code="b"]', namespaces)
+                sub_c = f26x.find('marc:subfield[@code="c"]', namespaces)
                 if sub_b is not None and sub_b.text:
                     item["publisher"] = clean_marc_text(sub_b.text)
                 if sub_c is not None and sub_c.text:
-                    item["year"] = clean_marc_text(sub_c.text)
+                    item["year"] = clean_year(sub_c.text)
                     
-            # Price 020 $c
+            # 6. Giá tiền (020 $c)
             f020 = record.find('.//marc:datafield[@tag="020"]/marc:subfield[@code="c"]', namespaces)
             if f020 is not None and f020.text:
                 item["price"] = clean_marc_text(f020.text)
                 
-            # Location 852 $b $c
-            f852 = record.find('.//marc:datafield[@tag="852"]', namespaces)
-            if f852 is not None:
+            # 7. Vị trí kho (852 $b $c - gom tất cả các thẻ lặp lại)
+            loc_list = []
+            for f852 in record.findall('.//marc:datafield[@tag="852"]', namespaces):
                 sub_b = f852.find('marc:subfield[@code="b"]', namespaces)
                 sub_c = f852.find('marc:subfield[@code="c"]', namespaces)
-                loc_parts = []
+                parts = []
                 if sub_b is not None and sub_b.text:
-                    loc_parts.append(clean_marc_text(sub_b.text))
+                    parts.append(clean_marc_text(sub_b.text))
                 if sub_c is not None and sub_c.text:
-                    loc_parts.append(clean_marc_text(sub_c.text))
-                item["location"] = " / ".join(loc_parts)
+                    parts.append(clean_marc_text(sub_c.text))
+                if parts:
+                    loc_str = " / ".join(parts)
+                    if loc_str not in loc_list:
+                        loc_list.append(loc_str)
+            item["locations"] = loc_list
+            item["location"] = " ; ".join(loc_list)  # Giữ string phẳng cho OpenClaw
 
-            # Summary 520 $a
+            # 8. Tóm tắt nội dung (520 $a)
             f520 = record.find('.//marc:datafield[@tag="520"]', namespaces)
             if f520 is not None:
                 sub_a = f520.find('marc:subfield[@code="a"]', namespaces)
@@ -131,15 +181,16 @@ def main():
     
     args = parser.parse_args()
     
-    cql_query = args.query
-    if args.author:
-        cql_query += f' AND dc.creator="{args.author}"'
-    if args.title:
-        cql_query += f' AND dc.title="{args.title}"'
+    raw_query = args.query.strip()
+    if "=" not in raw_query and not any(op in raw_query for op in [" AND ", " OR ", " NOT "]):
+        cql_query = f'dc.title="{raw_query}"'
+    else:
+        cql_query = raw_query
         
-    # If query is a plain keyword without field, wrap in dc.title
-    if "=" not in cql_query and " AND " not in cql_query and " OR " not in cql_query:
-        cql_query = f'dc.title="{cql_query}"'
+    if args.author:
+        cql_query += f' AND dc.creator="{args.author.strip()}"'
+    if args.title:
+        cql_query += f' AND dc.title="{args.title.strip()}"'
         
     records = search_sru(cql_query, args.limit)
     print(json.dumps(records, ensure_ascii=False, indent=2))
