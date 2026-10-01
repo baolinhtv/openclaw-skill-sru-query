@@ -14,9 +14,11 @@ Enable querying the Khánh Hòa Provincial Library SRU service via CQL (Common Q
 
 ## Usage
 
-### Primary Function: `sru_search`
-```
-openclaw skills invoke sru_query --query "python"
+### Primary Function: `sru_query.py` CLI
+```bash
+python3 sru_query.py "python"
+python3 sru_query.py "elon musk" --limit 5
+python3 sru_query.py "Tô Hoài" --author "Tô Hoài"
 ```
 
 #### Parameters
