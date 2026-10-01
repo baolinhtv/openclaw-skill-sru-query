@@ -1,16 +1,12 @@
 import sys
 import time
-<<<<<<< Updated upstream
 import re
-=======
->>>>>>> Stashed changes
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import json
 import argparse
 
-<<<<<<< Updated upstream
 def clean_marc_text(text):
     """Xóa bỏ các ký tự phân cách chuẩn ISBD còn sót lại ở hai đầu chuỗi"""
     if not text:
@@ -23,15 +19,6 @@ def clean_year(year_text):
         return ""
     match = re.search(r'\b(19\d{2}|20\d{2})\b', year_text)
     return match.group(0) if match else clean_marc_text(year_text)
-=======
-
-def clean_marc_text(text):
-    """Xóa bỏ các dấu câu chuẩn ISBD còn sót lại ở cuối chuỗi trong MARC21"""
-    if not text:
-        return ""
-    return text.strip().rstrip(" /:;,.")
-
->>>>>>> Stashed changes
 
 def search_sru(query, maximum_records=10, retries=3, backoff_factor=1.5):
     base_url = "https://sru.thuvienkhanhhoa.gov.vn/khanhhoa"
@@ -44,11 +31,7 @@ def search_sru(query, maximum_records=10, retries=3, backoff_factor=1.5):
     }
     url = f"{base_url}?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(url, headers={'User-Agent': 'OpenClaw-SRU-Client/1.0'})
-<<<<<<< Updated upstream
     
-=======
-
->>>>>>> Stashed changes
     for attempt in range(1, retries + 1):
         try:
             with urllib.request.urlopen(req, timeout=10) as response:
@@ -58,13 +41,7 @@ def search_sru(query, maximum_records=10, retries=3, backoff_factor=1.5):
             if attempt == retries:
                 print(f"Error fetching SRU data (Attempt {attempt}/{retries}): {e}", file=sys.stderr)
                 return []
-<<<<<<< Updated upstream
             time.sleep(backoff_factor ** attempt)
-=======
-            sleep_time = backoff_factor ** attempt
-            time.sleep(sleep_time)
-
->>>>>>> Stashed changes
 
 def parse_marcxml(xml_bytes):
     results = []
@@ -90,7 +67,6 @@ def parse_marcxml(xml_bytes):
                 "price": "",
                 "locations": []
             }
-<<<<<<< Updated upstream
             
             # 1. Mã biểu ghi (001)
             f001 = record.find('.//marc:controlfield[@tag="001"]', namespaces)
@@ -112,20 +88,6 @@ def parse_marcxml(xml_bytes):
             item["authors"] = authors
 
             # 3. Nhan đề & Thông tin trách nhiệm (245 $a, $b, $c)
-=======
-
-            # 1. ID (001)
-            f001 = record.find('.//marc:controlfield[@tag="001"]', namespaces)
-            if f001 is not None and f001.text:
-                item["id"] = f001.text.strip()
-
-            # 2. Tác giả (100 $a hoặc fallback 110/700 nếu cần)
-            f100_a = record.find('.//marc:datafield[@tag="100"]/marc:subfield[@code="a"]', namespaces)
-            if f100_a is not None and f100_a.text:
-                item["author"] = clean_marc_text(f100_a.text)
-
-            # 3. Nhan đề (245 $a, $b)
->>>>>>> Stashed changes
             f245 = record.find('.//marc:datafield[@tag="245"]', namespaces)
             if f245 is not None:
                 sub_a = f245.find('marc:subfield[@code="a"]', namespaces)
@@ -137,7 +99,6 @@ def parse_marcxml(xml_bytes):
                     title_parts.append(clean_marc_text(sub_a.text))
                 if sub_b is not None and sub_b.text:
                     title_parts.append(clean_marc_text(sub_b.text))
-<<<<<<< Updated upstream
                 item["title"] = " - ".join(title_parts) if len(title_parts) > 1 else "".join(title_parts)
                 
                 # Nếu không có thẻ 100/700, fallback dùng thông tin trách nhiệm ở 245$c
@@ -173,28 +134,6 @@ def parse_marcxml(xml_bytes):
                 
             # 7. Vị trí kho (852 $b $c)
             for f852 in record.findall('.//marc:datafield[@tag="852"]', namespaces):
-=======
-                item["title"] = " ".join(title_parts)
-
-            # 4. Nhà xuất bản / Năm (260 $b $c)
-            f260 = record.find('.//marc:datafield[@tag="260"]', namespaces)
-            if f260 is not None:
-                sub_b = f260.find('marc:subfield[@code="b"]', namespaces)
-                sub_c = f260.find('marc:subfield[@code="c"]', namespaces)
-                if sub_b is not None and sub_b.text:
-                    item["publisher"] = clean_marc_text(sub_b.text)
-                if sub_c is not None and sub_c.text:
-                    item["year"] = clean_marc_text(sub_c.text)
-
-            # 5. Giá thành (020 $c)
-            f020 = record.find('.//marc:datafield[@tag="020"]/marc:subfield[@code="c"]', namespaces)
-            if f020 is not None and f020.text:
-                item["price"] = clean_marc_text(f020.text)
-
-            # 6. Vị trí kho (852 $b $c)
-            f852 = record.find('.//marc:datafield[@tag="852"]', namespaces)
-            if f852 is not None:
->>>>>>> Stashed changes
                 sub_b = f852.find('marc:subfield[@code="b"]', namespaces)
                 sub_c = f852.find('marc:subfield[@code="c"]', namespaces)
                 loc_parts = []
@@ -202,21 +141,16 @@ def parse_marcxml(xml_bytes):
                     loc_parts.append(clean_marc_text(sub_b.text))
                 if sub_c is not None and sub_c.text:
                     loc_parts.append(clean_marc_text(sub_c.text))
-<<<<<<< Updated upstream
                 if loc_parts:
                     loc_str = " / ".join(loc_parts)
                     if loc_str not in item["locations"]:
                         item["locations"].append(loc_str)
-=======
-                item["locations"] = loc_parts
->>>>>>> Stashed changes
 
             results.append(item)
     except Exception as e:
         print(f"Error parsing MARCXML: {e}", file=sys.stderr)
 
     return results
-
 
 def main():
     parser = argparse.ArgumentParser(description="Query Khanh Hoa Provincial Library SRU catalog.")
@@ -226,7 +160,6 @@ def main():
     parser.add_argument("--limit", type=int, default=10, help="Max records to return")
 
     args = parser.parse_args()
-<<<<<<< Updated upstream
     
     raw_query = args.query.strip()
     if "=" not in raw_query and not any(op in raw_query for op in [" AND ", " OR ", " NOT "]):
@@ -234,27 +167,13 @@ def main():
     else:
         cql_query = raw_query
         
-=======
-
-    cql_query = args.query
->>>>>>> Stashed changes
     if args.author:
         cql_query += f' AND dc.creator="{args.author.strip()}"'
     if args.title:
-<<<<<<< Updated upstream
         cql_query += f' AND dc.title="{args.title.strip()}"'
         
-=======
-        cql_query += f' AND dc.title="{args.title}"'
-
-    # If query is a plain keyword without field, wrap in dc.title
-    if "=" not in cql_query and " AND " not in cql_query and " OR " not in cql_query:
-        cql_query = f'dc.title="{cql_query}"'
-
->>>>>>> Stashed changes
     records = search_sru(cql_query, args.limit)
     print(json.dumps(records, ensure_ascii=False, indent=2))
-
 
 if __name__ == "__main__":
     main()
